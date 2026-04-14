@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { createIncident, listIncidents, type Incident } from "../lib/api";
+import {
+  createIncident,
+  downloadFile,
+  listIncidentAttachments,
+  listIncidents,
+  uploadIncidentFiles,
+  type FileAsset,
+  type Incident,
+} from "../lib/api";
 
 type Filter = {
   q: string;
@@ -100,6 +108,10 @@ export default function IncidentsPage({ token }: { token: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentsByIncident, setAttachmentsByIncident] = useState<Record<string, FileAsset[]>>({});
+  const [openAttachmentIncidentId, setOpenAttachmentIncidentId] = useState<string | null>(null);
+  const [attachmentLoadingId, setAttachmentLoadingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -133,7 +145,7 @@ export default function IncidentsPage({ token }: { token: string }) {
     setError(null);
 
     try {
-      await createIncident(
+      const created = await createIncident(
         {
         ...form,
         assigneeUserId: form.assigneeUserId || null,
@@ -143,6 +155,10 @@ export default function IncidentsPage({ token }: { token: string }) {
         token
       );
 
+      if (attachmentFiles.length) {
+        await uploadIncidentFiles(token, created.id, attachmentFiles);
+      }
+
       setForm((current) => ({
         ...current,
         title: "",
@@ -151,6 +167,7 @@ export default function IncidentsPage({ token }: { token: string }) {
         assigneeUserId: "",
         dueDate: "",
       }));
+      setAttachmentFiles([]);
 
       const fresh = await listIncidents(params, token);
       setData(fresh);
@@ -158,6 +175,41 @@ export default function IncidentsPage({ token }: { token: string }) {
       setError(e?.message ?? String(e));
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function toggleAttachments(incidentId: string) {
+    if (openAttachmentIncidentId === incidentId) {
+      setOpenAttachmentIncidentId(null);
+      return;
+    }
+
+    if (!attachmentsByIncident[incidentId]) {
+      setAttachmentLoadingId(incidentId);
+      try {
+        const result = await listIncidentAttachments(token, incidentId);
+        setAttachmentsByIncident((current) => ({ ...current, [incidentId]: result.items }));
+      } catch (e: any) {
+        setError(e?.message ?? String(e));
+      } finally {
+        setAttachmentLoadingId(null);
+      }
+    }
+
+    setOpenAttachmentIncidentId(incidentId);
+  }
+
+  async function handleDownload(file: FileAsset) {
+    try {
+      const blob = await downloadFile(token, file.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
     }
   }
 
@@ -363,6 +415,32 @@ export default function IncidentsPage({ token }: { token: string }) {
                         <span className="muted">{dueDateLabel}</span>
                         {item.measures ? <span className="muted">Tiltak: {item.measures}</span> : null}
                       </div>
+
+                      <div className="incident-card__footer">
+                        <span className="muted">{item.attachmentCount ?? 0} vedlegg</span>
+                        <button className="btn-secondary" type="button" onClick={() => void toggleAttachments(item.id)}>
+                          {openAttachmentIncidentId === item.id ? "Skjul vedlegg" : "Vis vedlegg"}
+                        </button>
+                      </div>
+
+                      {openAttachmentIncidentId === item.id ? (
+                        <div className="stack">
+                          {attachmentLoadingId === item.id ? (
+                            <p className="muted">Laster vedlegg...</p>
+                          ) : (attachmentsByIncident[item.id] ?? []).length === 0 ? (
+                            <p className="muted">Ingen vedlegg registrert.</p>
+                          ) : (
+                            (attachmentsByIncident[item.id] ?? []).map((file) => (
+                              <div key={file.id} className="incident-card__footer">
+                                <span className="muted">{file.fileName}</span>
+                                <button className="btn-secondary" type="button" onClick={() => void handleDownload(file)}>
+                                  Last ned
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}
@@ -479,6 +557,27 @@ export default function IncidentsPage({ token }: { token: string }) {
                 />
                 <p className="field-hint">Kan brukes dersom saken allerede har en tydelig eier.</p>
               </div>
+
+              <div className="field">
+                <label htmlFor="incident-attachments">Vedlegg</label>
+                <input
+                  id="incident-attachments"
+                  type="file"
+                  multiple
+                  onChange={(e) => setAttachmentFiles(Array.from(e.target.files ?? []))}
+                />
+                <p className="field-hint">Last opp bilder eller dokumentasjon sammen med avviket. Maks 5 MB per fil.</p>
+              </div>
+
+              {attachmentFiles.length ? (
+                <div className="badge-row">
+                  {attachmentFiles.map((file) => (
+                    <span key={`${file.name}-${file.size}`} className="chip">
+                      {file.name}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
 
               <button className="btn" type="submit" disabled={creating}>
                 {creating ? "Lagrer..." : "Registrer avvik"}

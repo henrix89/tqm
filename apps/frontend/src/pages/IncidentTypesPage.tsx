@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import InfoHint from "../components/InfoHint";
 import { createIncidentType, listCompanies, listIncidentTypes, type AuthUser, type Company, type IncidentType } from "../lib/api";
+
+function toSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 export default function IncidentTypesPage({ token, currentUser }: { token: string; currentUser: AuthUser }) {
   const [items, setItems] = useState<IncidentType[]>([]);
@@ -9,12 +21,12 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
-    slug: "",
     description: "",
     companyId: currentUser.companyId,
   });
 
   const canManage = currentUser.role === "superadmin" || currentUser.role === "company_admin";
+  const slugPreview = useMemo(() => toSlug(form.name), [form.name]);
 
   async function refresh() {
     setLoading(true);
@@ -41,10 +53,9 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
     setError(null);
 
     try {
-      await createIncidentType(token, form);
+      await createIncidentType(token, { ...form, slug: slugPreview });
       setForm({
         name: "",
-        slug: "",
         description: "",
         companyId: currentUser.companyId,
       });
@@ -60,15 +71,17 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
 
   return (
     <div className="page">
-      <section className="page-hero">
+      <section className="page-hero page-hero--tight">
         <div className="page-intro">
           <p className="section-label">Avvikstyper</p>
-          <h2 className="page-hero__title">Definer hvilke typer avvik som skal brukes i systemet.</h2>
-          <p>Avvikstyper gjør det lettere å standardisere registrering og rapportering senere.</p>
+          <div className="header-inline">
+            <h2 className="page-hero__title">Typebibliotek</h2>
+            <InfoHint text="Avvikstyper gjør registreringen mer konsekvent og gir bedre filtrering og rapportering senere." />
+          </div>
         </div>
-        <div className="hero-panel">
-          <p className="section-label">Oversikt</p>
-          <h3>{items.length} avvikstyper er registrert.</h3>
+        <div className="hero-panel hero-panel--compact">
+          <p className="section-label">Antall</p>
+          <h3>{items.length}</h3>
         </div>
       </section>
 
@@ -77,9 +90,9 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
       <section className="incident-layout">
         <article className="card">
           <div className="table-toolbar">
-            <div>
+            <div className="card-headline">
               <h2>Avvikstyper</h2>
-              <p className="table-caption">{loading ? "Laster..." : `${items.length} typer tilgjengelig`}</p>
+              <InfoHint text="Hver type tilhører et firma og kan brukes videre i avviksregistrering." />
             </div>
           </div>
 
@@ -89,7 +102,6 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
                 <div className="incident-card__head">
                   <div className="page-intro">
                     <h3>{item.name}</h3>
-                    <p>{item.slug}</p>
                   </div>
                   <span className="status-pill" data-tone={item.isActive ? "DONE" : "REJECTED"}>
                     {item.isActive ? "Aktiv" : "Inaktiv"}
@@ -98,37 +110,37 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
                 <div className="incident-card__meta">
                   <span className="chip">{companyNames.get(item.companyId) || "Ukjent firma"}</span>
                 </div>
-                <div className="incident-card__footer">
-                  <span className="muted">{item.description || "Ingen beskrivelse"}</span>
-                </div>
+                {item.description ? (
+                  <div className="incident-card__footer">
+                    <span className="muted">{item.description}</span>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
         </article>
 
         <article className="card">
-          <div className="page-intro">
-            <p className="section-label">Ny avvikstype</p>
-            <h2>Opprett en ny type som brukerne kan velge senere.</h2>
+          <div className="card-headline">
+            <h2>Ny avvikstype</h2>
+            <InfoHint text="Teknisk identifikator opprettes automatisk. Du trenger bare navn, beskrivelse og firma." />
           </div>
 
           {!canManage ? (
             <div className="empty-state">
               <h3>Kun firmaadmin eller superadmin kan opprette avvikstyper</h3>
-              <p>Du kan se oversikten, men ikke opprette nye typer med din rolle.</p>
             </div>
           ) : (
-            <form className="incident-form" onSubmit={onSubmit}>
+            <form className="incident-form compact-form" onSubmit={onSubmit}>
               <div className="field">
                 <label htmlFor="incident-type-name">Navn</label>
                 <input id="incident-type-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="field">
-                <label htmlFor="incident-type-slug">Slug</label>
-                <input id="incident-type-slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} required />
-              </div>
-              <div className="field">
-                <label htmlFor="incident-type-description">Beskrivelse</label>
+                <span className="label-with-info">
+                  <label htmlFor="incident-type-description">Beskrivelse</label>
+                  <InfoHint text="Valgfritt. Bruk bare dette feltet hvis navnet alene ikke er tydelig nok." />
+                </span>
                 <textarea
                   id="incident-type-description"
                   value={form.description}
@@ -136,7 +148,10 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
                 />
               </div>
               <div className="field">
-                <label htmlFor="incident-type-company">Firma</label>
+                <span className="label-with-info">
+                  <label htmlFor="incident-type-company">Firma</label>
+                  <InfoHint text="Kun superadmin kan velge firma på tvers." />
+                </span>
                 <select
                   id="incident-type-company"
                   value={form.companyId}
@@ -150,7 +165,7 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
                   ))}
                 </select>
               </div>
-              <button className="btn" type="submit" disabled={submitting}>
+              <button className="btn" type="submit" disabled={submitting || !slugPreview}>
                 {submitting ? "Oppretter..." : "Opprett avvikstype"}
               </button>
             </form>

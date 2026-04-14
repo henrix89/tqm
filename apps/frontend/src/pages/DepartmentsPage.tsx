@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import InfoHint from "../components/InfoHint";
 import {
   createDepartment,
   listCompanies,
@@ -79,15 +80,17 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
 
   return (
     <div className="page">
-      <section className="page-hero">
+      <section className="page-hero page-hero--tight">
         <div className="page-intro">
-          <p className="section-label">Avdelingsadministrasjon</p>
-          <h2 className="page-hero__title">Bygg opp struktur for avdelinger og lederansvar.</h2>
-          <p>Avdelinger kobles til firma og kan knyttes til en navngitt leder allerede i første versjon.</p>
+          <p className="section-label">Avdelinger</p>
+          <div className="header-inline">
+            <h2 className="page-hero__title">Avdelingsstruktur</h2>
+            <InfoHint text="Avdelinger kobles til firma og kan ha en ansvarlig leder for enklere tilgangsstyring." />
+          </div>
         </div>
-        <div className="hero-panel">
-          <p className="section-label">Oversikt</p>
-          <h3>{departments.length} avdelinger er registrert.</h3>
+        <div className="hero-panel hero-panel--compact">
+          <p className="section-label">Antall</p>
+          <h3>{departments.length}</h3>
         </div>
       </section>
 
@@ -96,9 +99,9 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
       <section className="incident-layout">
         <article className="card">
           <div className="table-toolbar">
-            <div>
+            <div className="card-headline">
               <h2>Avdelinger</h2>
-              <p className="table-caption">{loading ? "Laster..." : `${departments.length} avdelinger tilgjengelig`}</p>
+              <InfoHint text="Hver avdeling vises med tilhørende firma og valgt leder." />
             </div>
           </div>
 
@@ -123,24 +126,26 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
         </article>
 
         <article className="card">
-          <div className="page-intro">
-            <p className="section-label">Ny avdeling</p>
-            <h2>Opprett avdeling og tildel leder.</h2>
+          <div className="card-headline">
+            <h2>Ny avdeling</h2>
+            <InfoHint text="Velg firma og eventuelt avdelingsleder. Tekniske felter er skjult for å holde skjemaet ryddig." />
           </div>
 
           {!canManage ? (
             <div className="empty-state">
               <h3>Kun firmaadmin eller superadmin kan opprette avdelinger</h3>
-              <p>Du kan se oversikten, men ikke opprette nye avdelinger med din rolle.</p>
             </div>
           ) : (
-            <form className="incident-form" onSubmit={onSubmit}>
+            <form className="incident-form compact-form" onSubmit={onSubmit}>
               <div className="field">
                 <label htmlFor="department-name">Avdelingsnavn</label>
                 <input id="department-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="field">
-                <label htmlFor="department-company">Firma</label>
+                <span className="label-with-info">
+                  <label htmlFor="department-company">Firma</label>
+                  <InfoHint text="Kun superadmin kan velge firma på tvers." />
+                </span>
                 <select
                   id="department-company"
                   value={form.companyId}
@@ -155,7 +160,10 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="department-manager">Avdelingsleder</label>
+                <span className="label-with-info">
+                  <label htmlFor="department-manager">Avdelingsleder</label>
+                  <InfoHint text="Kan stå tomt hvis leder skal settes senere." />
+                </span>
                 <select id="department-manager" value={form.managerUserId} onChange={(e) => setForm({ ...form, managerUserId: e.target.value })}>
                   <option value="">Ingen leder valgt</option>
                   {visibleUsers.map((user) => (

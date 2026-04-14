@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import InfoHint from "../components/InfoHint";
 import { createCompany, listCompanies, type AuthUser, type Company } from "../lib/api";
 
 function toSlug(value: string) {
@@ -58,15 +59,17 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
 
   return (
     <div className="page">
-      <section className="page-hero">
+      <section className="page-hero page-hero--tight">
         <div className="page-intro">
-          <p className="section-label">Firmaadministrasjon</p>
-          <h2 className="page-hero__title">Opprett og administrer firmaer i løsningen.</h2>
-          <p>Denne modulen brukes først og fremst av superadmin for å etablere selskapsstrukturen.</p>
+          <p className="section-label">Firma</p>
+          <div className="header-inline">
+            <h2 className="page-hero__title">Firmastruktur</h2>
+            <InfoHint text="Firma brukes til å skille data, brukere og administrasjon mellom ulike selskaper i løsningen." />
+          </div>
         </div>
-        <div className="hero-panel">
-          <p className="section-label">Oversikt</p>
-          <h3>{companies.length} firmaer er registrert.</h3>
+        <div className="hero-panel hero-panel--compact">
+          <p className="section-label">Antall</p>
+          <h3>{companies.length}</h3>
         </div>
       </section>
 
@@ -75,9 +78,9 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
       <section className="incident-layout">
         <article className="card">
           <div className="table-toolbar">
-            <div>
+            <div className="card-headline">
               <h2>Firmaer</h2>
-              <p className="table-caption">{loading ? "Laster..." : `${companies.length} firmaer tilgjengelig`}</p>
+              <InfoHint text="Listen viser registrerte firmaer du har tilgang til." />
             </div>
           </div>
 
@@ -87,7 +90,6 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
                 <div className="incident-card__head">
                   <div className="page-intro">
                     <h3>{company.name}</h3>
-                    <p>{company.slug}</p>
                   </div>
                   <span className="status-pill" data-tone={company.isActive ? "DONE" : "REJECTED"}>
                     {company.isActive ? "Aktiv" : "Inaktiv"}
@@ -99,18 +101,17 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
         </article>
 
         <article className="card">
-          <div className="page-intro">
-            <p className="section-label">Nytt firma</p>
-            <h2>Registrer et nytt firma.</h2>
+          <div className="card-headline">
+            <h2>Nytt firma</h2>
+            <InfoHint text="Tekniske felter opprettes automatisk. Du trenger bare firmanavn." />
           </div>
 
           {!canCreate ? (
             <div className="empty-state">
               <h3>Kun superadmin kan opprette firmaer</h3>
-              <p>Du kan se oversikten, men ikke opprette nye firmaer med din rolle.</p>
             </div>
           ) : (
-            <form className="incident-form" onSubmit={onSubmit}>
+            <form className="incident-form compact-form" onSubmit={onSubmit}>
               <div className="field">
                 <label htmlFor="company-name">Firmanavn</label>
                 <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} required />

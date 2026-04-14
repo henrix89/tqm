@@ -9,6 +9,17 @@ import { createIncidentTypeSchema, updateIncidentTypeSchema } from "./schemas";
 
 export const router = Router();
 
+function toSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 router.use(requireAuth);
 
 router.get(
@@ -37,14 +48,16 @@ router.post(
   requireRole("company_admin"),
   asyncHandler(async (req: AuthenticatedRequest, res) => {
     const body = createIncidentTypeSchema.parse(req.body);
+    const slug = toSlug(body.slug || body.name);
     if (req.auth!.role !== "superadmin" && req.auth!.companyId !== body.companyId) {
       return res.status(403).json({ error: "Cross-company access is not allowed" });
     }
+    if (!slug) return res.status(400).json({ error: "Incident type slug cannot be empty" });
 
     const created = await IncidentTypeModel.create({
       ...body,
       companyId: new Types.ObjectId(body.companyId),
-      slug: body.slug.toLowerCase(),
+      slug,
     });
 
     res.status(201).json({

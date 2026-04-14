@@ -13,6 +13,7 @@ export const config = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? "",
   mongoUrl: process.env.MONGO_URL ?? "",
+  uploadDir: process.env.UPLOAD_DIR ?? path.resolve(__dirname, "../../../../uploads"),
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",
   bcryptRounds: Number(process.env.BCRYPT_ROUNDS ?? 10),

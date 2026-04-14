@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import InfoHint from "../components/InfoHint";
 import {
   createUser,
   deactivateUser,
@@ -116,25 +117,17 @@ export default function UsersPage({ token, currentUser }: Props) {
 
   return (
     <div className="page">
-      <section className="page-hero">
+      <section className="page-hero page-hero--tight">
         <div className="page-intro">
-          <p className="section-label">Brukeradministrasjon</p>
-          <h2 className="page-hero__title">Administrer brukere, roller og tilknytning til avdeling.</h2>
-          <p>Her kan du opprette brukere, se lederlinjer og deaktivere kontoer ved behov.</p>
-        </div>
-        <div className="hero-panel">
-          <p className="section-label">Nå i systemet</p>
-          <h3>{users.length} brukere er tilgjengelige i din nåværende visning.</h3>
-          <div className="hero-panel__grid">
-            <div className="hero-panel__item">
-              <span className="hero-panel__value">{users.filter((user) => user.isActive).length}</span>
-              <span>aktive brukere</span>
-            </div>
-            <div className="hero-panel__item">
-              <span className="hero-panel__value">{departments.length}</span>
-              <span>avdelinger tilgjengelige</span>
-            </div>
+          <p className="section-label">Brukere</p>
+          <div className="header-inline">
+            <h2 className="page-hero__title">Brukeradministrasjon</h2>
+            <InfoHint text="Her administrerer du tilgang, avdeling og lederlinje for brukerne i systemet." />
           </div>
+        </div>
+        <div className="hero-panel hero-panel--compact">
+          <p className="section-label">Aktive</p>
+          <h3>{users.filter((user) => user.isActive).length}</h3>
         </div>
       </section>
 
@@ -144,9 +137,9 @@ export default function UsersPage({ token, currentUser }: Props) {
         <div className="stack">
           <article className="card">
             <div className="table-toolbar">
-              <div>
+              <div className="card-headline">
                 <h2>Brukeroversikt</h2>
-                <p className="table-caption">{loading ? "Laster brukere..." : `${users.length} brukere i denne visningen`}</p>
+                <InfoHint text="Viser brukere i ditt synlige område basert på rollen din." />
               </div>
             </div>
 
@@ -183,7 +176,6 @@ export default function UsersPage({ token, currentUser }: Props) {
               {!loading && users.length === 0 ? (
                 <div className="empty-state">
                   <h3>Ingen brukere tilgjengelig</h3>
-                  <p>Opprett en bruker for å komme i gang med organisasjonsmodellen.</p>
                 </div>
               ) : null}
             </div>
@@ -192,19 +184,17 @@ export default function UsersPage({ token, currentUser }: Props) {
 
         <div className="stack">
           <article className="card">
-            <div className="page-intro">
-              <p className="section-label">Ny bruker</p>
-              <h2>Opprett konto og plasser brukeren riktig i organisasjonen.</h2>
-              <p>Skjemaet holder første versjon enkel, men dekker firma, avdeling, rolle og nærmeste leder.</p>
+            <div className="card-headline">
+              <h2>Ny bruker</h2>
+              <InfoHint text="Nye brukere får midlertidig passord og kan knyttes til både avdeling og nærmeste leder." />
             </div>
 
             {!canManageUsers ? (
               <div className="empty-state">
                 <h3>Du har kun lesetilgang</h3>
-                <p>Denne delen krever Avdelingsleder, Firma Administrasjon eller Superadmin.</p>
               </div>
             ) : (
-              <form className="incident-form" onSubmit={onSubmit}>
+              <form className="incident-form compact-form" onSubmit={onSubmit}>
                 <div className="form-grid">
                   <div className="field">
                     <label htmlFor="firstName">Fornavn</label>
@@ -222,7 +212,10 @@ export default function UsersPage({ token, currentUser }: Props) {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="password">Midlertidig passord</label>
+                  <span className="label-with-info">
+                    <label htmlFor="password">Midlertidig passord</label>
+                    <InfoHint text="Brukeren må bytte dette ved første innlogging." />
+                  </span>
                   <input
                     id="password"
                     type="password"
@@ -252,7 +245,10 @@ export default function UsersPage({ token, currentUser }: Props) {
 
                 <div className="form-grid">
                   <div className="field">
-                    <label htmlFor="companyId">Firma</label>
+                    <span className="label-with-info">
+                      <label htmlFor="companyId">Firma</label>
+                      <InfoHint text="Kun superadmin kan opprette brukere på tvers av firma." />
+                    </span>
                     <select
                       id="companyId"
                       value={form.companyId}
@@ -280,7 +276,10 @@ export default function UsersPage({ token, currentUser }: Props) {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="reportsToUserId">Rapporterer til</label>
+                  <span className="label-with-info">
+                    <label htmlFor="reportsToUserId">Rapporterer til</label>
+                    <InfoHint text="Velg nærmeste leder dersom brukeren skal inngå i en lederlinje." />
+                  </span>
                   <select id="reportsToUserId" value={form.reportsToUserId} onChange={(e) => setForm({ ...form, reportsToUserId: e.target.value })}>
                     <option value="">Ingen leder valgt</option>
                     {users.map((user) => (

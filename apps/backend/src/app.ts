@@ -6,7 +6,7 @@ import { router as apiV1 } from "./routes";
 
 export function createApp() {
   const app = express();
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "20mb" }));
   app.use(express.urlencoded({ extended: true }));
   app.use(morgan("dev"));
   app.use(cors({ origin: config.allowOrigins.length ? config.allowOrigins : true }));

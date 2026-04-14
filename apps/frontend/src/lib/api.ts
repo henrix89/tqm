@@ -74,6 +74,97 @@ export type Incident = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  attachmentCount?: number;
+};
+
+export type FileAsset = {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storagePath: string;
+  uploadedBy: string;
+  uploadedAt: string;
+};
+
+export type CrmCustomerStatus = "PROSPEKT" | "AKTIV" | "INAKTIV";
+export type CrmActivityType = "BESOK" | "TELEFON" | "EPOST" | "MOTE" | "OPPFOLGING";
+export type CrmIssueSeverity = "LAV" | "MIDDELS" | "HOY" | "KRITISK";
+export type CrmIssueStatus = "APEN" | "PAGAR" | "LUKKET";
+
+export type CrmCustomer = {
+  id: string;
+  name: string;
+  organizationNumber: string;
+  industry: string;
+  status: CrmCustomerStatus;
+  address: string;
+  website: string;
+  notes: string;
+  ownerUserId: string;
+  companyId: string;
+  departmentId: string | null;
+  sharedWithUserIds: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmContact = {
+  id: string;
+  customerId: string;
+  name: string;
+  email: string;
+  phone: string;
+  jobTitle: string;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmActivity = {
+  id: string;
+  customerId: string;
+  contactId: string | null;
+  type: CrmActivityType;
+  date: string;
+  summary: string;
+  details: string;
+  ownerUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmNote = {
+  id: string;
+  customerId: string;
+  body: string;
+  authorUserId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmIssue = {
+  id: string;
+  customerId: string;
+  title: string;
+  description: string;
+  category: string;
+  severity: CrmIssueSeverity;
+  status: CrmIssueStatus;
+  dueDate?: string | null;
+  ownerUserId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrmCustomerDetail = {
+  customer: CrmCustomer;
+  contacts: CrmContact[];
+  activities: CrmActivity[];
+  notes: CrmNote[];
+  issues: CrmIssue[];
+  attachments: FileAsset[];
 };
 
 type RequestOptions = {
@@ -107,6 +198,44 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   return res.json();
+}
+
+async function apiBlob(path: string, token?: string | null) {
+  const headers: Record<string, string> = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (DEV_USER_ID) {
+    headers["x-user-id"] = DEV_USER_ID;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+
+  return res.blob();
+}
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function mapFilesForUpload(files: File[]) {
+  return Promise.all(
+    files.map(async (file) => ({
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+      dataBase64: await fileToBase64(file),
+    }))
+  );
 }
 
 export async function login(email: string, password: string): Promise<AuthLoginResponse> {
@@ -233,4 +362,84 @@ export async function createIncident(body: Record<string, unknown>, token?: stri
     token,
     body,
   });
+}
+
+export async function listIncidentAttachments(token: string, incidentId: string) {
+  return apiRequest<{ items: FileAsset[] }>(`/incidents/${incidentId}/attachments`, { token });
+}
+
+export async function uploadIncidentFiles(token: string, incidentId: string, files: File[]) {
+  return apiRequest<{ items: FileAsset[] }>(`/incidents/${incidentId}/attachments`, {
+    method: "POST",
+    token,
+    body: { files: await mapFilesForUpload(files) },
+  });
+}
+
+export async function listCrmCustomers(token: string, params: Record<string, unknown> = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") qs.append(key, String(value));
+  });
+  return apiRequest<{ items: CrmCustomer[] }>(`/crm/customers?${qs.toString()}`, { token });
+}
+
+export async function getCrmCustomerDetail(token: string, customerId: string) {
+  return apiRequest<CrmCustomerDetail>(`/crm/customers/${customerId}`, { token });
+}
+
+export async function listCrmCustomerAttachments(token: string, customerId: string) {
+  return apiRequest<{ items: FileAsset[] }>(`/crm/customers/${customerId}/attachments`, { token });
+}
+
+export async function createCrmCustomer(token: string, body: Record<string, unknown>) {
+  return apiRequest<CrmCustomer>("/crm/customers", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createCrmContact(token: string, customerId: string, body: Record<string, unknown>) {
+  return apiRequest<CrmContact>(`/crm/customers/${customerId}/contacts`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createCrmActivity(token: string, customerId: string, body: Record<string, unknown>) {
+  return apiRequest<CrmActivity>(`/crm/customers/${customerId}/activities`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createCrmNote(token: string, customerId: string, body: Record<string, unknown>) {
+  return apiRequest<CrmNote>(`/crm/customers/${customerId}/notes`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createCrmIssue(token: string, customerId: string, body: Record<string, unknown>) {
+  return apiRequest<CrmIssue>(`/crm/customers/${customerId}/issues`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function uploadCrmCustomerFiles(token: string, customerId: string, files: File[]) {
+  return apiRequest<{ items: FileAsset[] }>(`/crm/customers/${customerId}/attachments`, {
+    method: "POST",
+    token,
+    body: { files: await mapFilesForUpload(files) },
+  });
+}
+
+export async function downloadFile(token: string, fileId: string) {
+  return apiBlob(`/files/${fileId}/content`, token);
 }
