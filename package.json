@@ -1,0 +1,23 @@
+{
+  "name": "internal-governance-system",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w apps/backend && npm run build -w apps/frontend",
+    "dev": "node scripts/dev-all.js",
+    "dev:all": "node scripts/dev-all.js",
+    "dev:backend": "npm run dev -w apps/backend",
+    "dev:frontend": "npm run dev -w apps/frontend",
+    "seed:mongo-admin": "node scripts/seed-mongo-admin.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "mongodb": "^7.1.1"
+  }
+}

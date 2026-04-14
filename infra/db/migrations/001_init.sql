@@ -1,0 +1,194 @@
+-- PostgreSQL initial schema for Internal Governance System
+-- Safe defaults: UUID PKs, timestamps, enums as text + CHECK, minimal assumptions.
+
+create extension if not exists "uuid-ossp";
+
+-- Users & org
+create table if not exists departments (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null unique
+);
+
+create table if not exists users (
+  id uuid primary key default uuid_generate_v4(),
+  email text not null unique,
+  name text not null,
+  role text not null check (role in ('ADMIN','LEDER','ANSATT','HMS_KS')),
+  department_id uuid references departments(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Files (attachments & document blobs are external; store metadata + path)
+create table if not exists file_assets (
+  id uuid primary key default uuid_generate_v4(),
+  file_name text not null,
+  content_type text not null,
+  size_bytes bigint not null,
+  storage_path text not null,
+  uploaded_by uuid not null references users(id) on delete restrict,
+  uploaded_at timestamptz not null default now()
+);
+
+-- Incidents (Avvik)
+create table if not exists incidents (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text not null,
+  date date not null,
+  category text not null check (category in ('HMS','LEVERANSE','TEKNISK','KUNDE','INTERN_PROSESS')),
+  severity text not null check (severity in ('LAV','MIDDELS','HØY','KRITISK')),
+  assignee_user_id uuid references users(id) on delete set null,
+  measures text,
+  status text not null default 'ÅPEN' check (status in ('ÅPEN','PÅGÅR','LUKKET','AVVIST')),
+  due_date date,
+  closed_at timestamptz,
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists incidents_status_idx on incidents(status);
+create index if not exists incidents_category_idx on incidents(category);
+create index if not exists incidents_severity_idx on incidents(severity);
+
+create table if not exists incident_comments (
+  id uuid primary key default uuid_generate_v4(),
+  incident_id uuid not null references incidents(id) on delete cascade,
+  user_id uuid not null references users(id) on delete restrict,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists incident_history (
+  id uuid primary key default uuid_generate_v4(),
+  incident_id uuid not null references incidents(id) on delete cascade,
+  field text not null,
+  old_value text,
+  new_value text,
+  changed_by uuid not null references users(id) on delete restrict,
+  changed_at timestamptz not null default now()
+);
+
+create table if not exists incident_attachments (
+  id uuid primary key default uuid_generate_v4(),
+  incident_id uuid not null references incidents(id) on delete cascade,
+  file_id uuid not null references file_assets(id) on delete restrict
+);
+
+-- Document archive
+create table if not exists documents (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  category text not null check (category in ('HMS','RUTINER','TEKNISK_DOK','PRODUKTINFO','KURS_OPPLÆRING')),
+  current_version_id uuid,
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists document_versions (
+  id uuid primary key default uuid_generate_v4(),
+  document_id uuid not null references documents(id) on delete cascade,
+  version text not null,
+  file_id uuid not null references file_assets(id) on delete restrict,
+  notes text,
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  unique (document_id, version)
+);
+
+alter table documents
+  add constraint documents_current_version_fk
+  foreign key (current_version_id)
+  references document_versions(id)
+  on delete set null;
+
+-- Surveys
+create table if not exists surveys (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  type text not null check (type in ('KUNDETILFREDSHET','INTERN_FEEDBACK','ANNET')),
+  is_anonymous boolean not null default false,
+  status text not null default 'DRAFT' check (status in ('DRAFT','PUBLISHED','CLOSED')),
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  published_at timestamptz,
+  closed_at timestamptz
+);
+
+create table if not exists survey_questions (
+  id uuid primary key default uuid_generate_v4(),
+  survey_id uuid not null references surveys(id) on delete cascade,
+  type text not null check (type in ('SINGLE','MULTI','RATING','TEXT','NUMBER','DATE')),
+  text text not null,
+  options jsonb,
+  required boolean not null default true,
+  "order" int not null
+);
+
+create table if not exists survey_responses (
+  id uuid primary key default uuid_generate_v4(),
+  survey_id uuid not null references surveys(id) on delete cascade,
+  responder_id uuid references users(id) on delete set null,
+  submitted_at timestamptz not null default now(),
+  metadata jsonb
+);
+
+create table if not exists survey_answers (
+  id uuid primary key default uuid_generate_v4(),
+  response_id uuid not null references survey_responses(id) on delete cascade,
+  question_id uuid not null references survey_questions(id) on delete cascade,
+  value jsonb not null
+);
+
+-- Vernerunder (Inspections)
+create table if not exists checklist_templates (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists checklist_template_items (
+  id uuid primary key default uuid_generate_v4(),
+  template_id uuid not null references checklist_templates(id) on delete cascade,
+  text text not null,
+  "order" int not null
+);
+
+create table if not exists inspection_rounds (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  department_id uuid references departments(id) on delete set null,
+  performed_by uuid references users(id) on delete set null,
+  performed_at timestamptz,
+  status text not null default 'ÅPEN' check (status in ('ÅPEN','LUKKET')),
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists inspection_findings (
+  id uuid primary key default uuid_generate_v4(),
+  inspection_id uuid not null references inspection_rounds(id) on delete cascade,
+  template_item_id uuid references checklist_template_items(id) on delete set null,
+  description text not null,
+  severity text not null check (severity in ('LAV','MIDDELS','HØY','KRITISK')),
+  action text,
+  assignee_user_id uuid references users(id) on delete set null,
+  status text not null default 'ÅPEN' check (status in ('ÅPEN','PÅGÅR','LUKKET')),
+  due_date date,
+  created_by uuid not null references users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  closed_at timestamptz,
+  incident_id uuid references incidents(id) on delete set null
+);
+
+create table if not exists finding_attachments (
+  id uuid primary key default uuid_generate_v4(),
+  finding_id uuid not null references inspection_findings(id) on delete cascade,
+  file_id uuid not null references file_assets(id) on delete restrict
+);
+
+-- Simple KPI helpers (materialized view could be added later)
+-- Here we just document suggested queries. No view created to avoid assumptions.
+
