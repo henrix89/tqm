@@ -10,13 +10,12 @@ import {
   type Department,
   type Role,
 } from "../lib/api";
+import { getAssignableRoles, roleLabels } from "../lib/roles";
 
 type Props = {
   token: string;
   currentUser: AuthUser;
 };
-
-const roles: Role[] = ["viewer", "employee", "manager", "company_admin", "superadmin"];
 
 export default function UsersPage({ token, currentUser }: Props) {
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -38,10 +37,12 @@ export default function UsersPage({ token, currentUser }: Props) {
   });
 
   const canManageUsers = currentUser.role === "superadmin" || currentUser.role === "company_admin" || currentUser.role === "manager";
+  const assignableRoles = getAssignableRoles(currentUser.role);
 
   async function refresh() {
     setLoading(true);
     setError(null);
+
     try {
       const [usersResult, departmentsResult, companiesResult] = await Promise.all([
         listUsers(token),
@@ -62,10 +63,17 @@ export default function UsersPage({ token, currentUser }: Props) {
     refresh();
   }, [token]);
 
+  useEffect(() => {
+    if (!assignableRoles.includes(form.role)) {
+      setForm((current) => ({ ...current, role: assignableRoles[0] ?? "employee" }));
+    }
+  }, [assignableRoles, form.role]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+
     try {
       await createUser(token, {
         ...form,
@@ -77,7 +85,7 @@ export default function UsersPage({ token, currentUser }: Props) {
         lastName: "",
         email: "",
         password: "",
-        role: "employee",
+        role: assignableRoles[0] ?? "employee",
         jobTitle: "",
         departmentId: "",
         companyId: currentUser.companyId,
@@ -93,6 +101,7 @@ export default function UsersPage({ token, currentUser }: Props) {
 
   async function onDeactivate(userId: string) {
     setError(null);
+
     try {
       await deactivateUser(token, userId);
       await refresh();
@@ -137,9 +146,7 @@ export default function UsersPage({ token, currentUser }: Props) {
             <div className="table-toolbar">
               <div>
                 <h2>Brukeroversikt</h2>
-                <p className="table-caption">
-                  {loading ? "Laster brukere..." : `${users.length} brukere i denne visningen`}
-                </p>
+                <p className="table-caption">{loading ? "Laster brukere..." : `${users.length} brukere i denne visningen`}</p>
               </div>
             </div>
 
@@ -157,7 +164,7 @@ export default function UsersPage({ token, currentUser }: Props) {
                   </div>
 
                   <div className="incident-card__meta">
-                    <span className="chip">{user.role}</span>
+                    <span className="chip">{roleLabels[user.role]}</span>
                     <span className="chip">{user.jobTitle || "Uten stillingstittel"}</span>
                     <span className="chip">{user.departmentId || "Ingen avdeling"}</span>
                   </div>
@@ -194,7 +201,7 @@ export default function UsersPage({ token, currentUser }: Props) {
             {!canManageUsers ? (
               <div className="empty-state">
                 <h3>Du har kun lesetilgang</h3>
-                <p>Denne delen krever manager, company_admin eller superadmin.</p>
+                <p>Denne delen krever Avdelingsleder, Firma Administrasjon eller Superadmin.</p>
               </div>
             ) : (
               <form className="incident-form" onSubmit={onSubmit}>
@@ -230,9 +237,9 @@ export default function UsersPage({ token, currentUser }: Props) {
                   <div className="field">
                     <label htmlFor="role">Rolle</label>
                     <select id="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-                      {roles.map((role) => (
+                      {assignableRoles.map((role) => (
                         <option key={role} value={role}>
-                          {role}
+                          {roleLabels[role]}
                         </option>
                       ))}
                     </select>
@@ -284,7 +291,7 @@ export default function UsersPage({ token, currentUser }: Props) {
                   </select>
                 </div>
 
-                <button className="btn" type="submit" disabled={submitting}>
+                <button className="btn" type="submit" disabled={submitting || assignableRoles.length === 0}>
                   {submitting ? "Oppretter..." : "Opprett bruker"}
                 </button>
               </form>

@@ -8,6 +8,17 @@ import { createCompanySchema, updateCompanySchema } from "./schemas";
 
 export const router = Router();
 
+function toSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 router.use(requireAuth);
 
 router.get(
@@ -33,9 +44,11 @@ router.post(
   requireRole("superadmin"),
   asyncHandler(async (req, res) => {
     const body = createCompanySchema.parse(req.body);
+    const slug = toSlug(body.slug || body.name);
+    if (!slug) return res.status(400).json({ error: "Company slug cannot be empty" });
     const created = await CompanyModel.create({
       name: body.name,
-      slug: body.slug.toLowerCase(),
+      slug,
       isActive: true,
     });
     res.status(201).json({

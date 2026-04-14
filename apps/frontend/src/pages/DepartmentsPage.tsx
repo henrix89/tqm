@@ -108,7 +108,6 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
                 <div className="incident-card__head">
                   <div className="page-intro">
                     <h3>{department.name}</h3>
-                    <p>{department.code || "Ingen kode"}</p>
                   </div>
                   <span className="status-pill" data-tone={department.isActive ? "DONE" : "REJECTED"}>
                     {department.isActive ? "Aktiv" : "Inaktiv"}
@@ -139,10 +138,6 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
               <div className="field">
                 <label htmlFor="department-name">Avdelingsnavn</label>
                 <input id="department-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              </div>
-              <div className="field">
-                <label htmlFor="department-code">Kode</label>
-                <input id="department-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
               </div>
               <div className="field">
                 <label htmlFor="department-company">Firma</label>

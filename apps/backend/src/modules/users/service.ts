@@ -3,6 +3,14 @@ import { hashPassword, signAuthToken, verifyPassword } from "../auth/utils";
 import type { AppRole, AuthUser } from "../auth/types";
 import { UserModel, type UserDocument } from "./model";
 
+const roleRank: Record<AppRole, number> = {
+  viewer: 1,
+  employee: 2,
+  manager: 3,
+  company_admin: 4,
+  superadmin: 5,
+};
+
 function toObjectId(value?: string | null) {
   if (!value) return null;
   return new Types.ObjectId(value);
@@ -51,6 +59,30 @@ function assertCanManageUser(actor: AuthUser, targetCompanyId: string, targetDep
   if (actor.role === "manager") {
     if (!actor.departmentId || actor.departmentId !== targetDepartmentId) {
       throw new Error("Manager can only manage users in their own department");
+    }
+    return;
+  }
+
+  throw new Error("Insufficient access");
+}
+
+function assertCanAssignRole(actor: AuthUser, targetRole: AppRole) {
+  if (actor.role === "superadmin") return;
+
+  if (targetRole === "superadmin") {
+    throw new Error("Only superadmin can assign the superadmin role");
+  }
+
+  if (actor.role === "company_admin") {
+    if (roleRank[targetRole] > roleRank.company_admin) {
+      throw new Error("Company administration cannot assign a higher role");
+    }
+    return;
+  }
+
+  if (actor.role === "manager") {
+    if (targetRole !== "employee" && targetRole !== "viewer") {
+      throw new Error("Department managers can only assign employee or viewer");
     }
     return;
   }
@@ -129,6 +161,7 @@ export async function createUser(
   }
 ) {
   assertCanManageUser(actor, input.companyId, input.departmentId ?? null);
+  assertCanAssignRole(actor, input.role);
 
   const user = await UserModel.create({
     firstName: input.firstName,
@@ -173,6 +206,9 @@ export async function updateUser(
   if (!user) return null;
 
   assertCanManageUser(actor, String(input.companyId ?? user.companyId), input.departmentId ?? (user.departmentId ? String(user.departmentId) : null));
+  if (input.role !== undefined) {
+    assertCanAssignRole(actor, input.role);
+  }
 
   if (input.firstName !== undefined) user.firstName = input.firstName;
   if (input.lastName !== undefined) user.lastName = input.lastName;

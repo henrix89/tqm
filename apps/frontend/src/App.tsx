@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { clearStoredAuth, readStoredAuth, writeStoredAuth, type StoredAuth } from "./lib/auth";
 import { getMyProfile, type AuthUser } from "./lib/api";
+import { roleLabels } from "./lib/roles";
 import DocumentsPage from "./pages/DocumentsPage";
 import CompaniesPage from "./pages/CompaniesPage";
 import DepartmentsPage from "./pages/DepartmentsPage";
@@ -97,7 +98,7 @@ function Layout({
             <p className="sidebar__card-label">Logget inn som</p>
             <strong>{user.fullName}</strong>
             <span>
-              {user.role}
+              {roleLabels[user.role]}
               {user.jobTitle ? ` | ${user.jobTitle}` : ""}
             </span>
           </div>

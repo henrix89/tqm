@@ -1,19 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createCompany, listCompanies, type AuthUser, type Company } from "../lib/api";
+
+function toSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "o")
+    .replace(/å/g, "a")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 export default function CompaniesPage({ token, currentUser }: { token: string; currentUser: AuthUser }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canCreate = currentUser.role === "superadmin";
+  const slugPreview = useMemo(() => toSlug(name), [name]);
 
   async function refresh() {
     setLoading(true);
     setError(null);
+
     try {
       const result = await listCompanies(token);
       setCompanies(result.items);
@@ -34,9 +46,8 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
     setError(null);
 
     try {
-      await createCompany(token, { name, slug });
+      await createCompany(token, { name, slug: slugPreview });
       setName("");
-      setSlug("");
       await refresh();
     } catch (err: any) {
       setError(err?.message ?? "Kunne ikke opprette firma");
@@ -104,11 +115,7 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
                 <label htmlFor="company-name">Firmanavn</label>
                 <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
-              <div className="field">
-                <label htmlFor="company-slug">Slug</label>
-                <input id="company-slug" value={slug} onChange={(e) => setSlug(e.target.value)} required />
-              </div>
-              <button className="btn" type="submit" disabled={submitting}>
+              <button className="btn" type="submit" disabled={submitting || !slugPreview}>
                 {submitting ? "Oppretter..." : "Opprett firma"}
               </button>
             </form>
