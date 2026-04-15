@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import InfoHint from "../components/InfoHint";
 import { createCompany, listCompanies, type AuthUser, type Company } from "../lib/api";
 
@@ -13,7 +14,15 @@ function toSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export default function CompaniesPage({ token, currentUser }: { token: string; currentUser: AuthUser }) {
+export default function CompaniesPage({
+  token,
+  currentUser,
+  moduleView = "list",
+}: {
+  token: string;
+  currentUser: AuthUser;
+  moduleView?: "list" | "create";
+}) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,6 +31,8 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
 
   const canCreate = currentUser.role === "superadmin";
   const slugPreview = useMemo(() => toSlug(name), [name]);
+  const showList = moduleView !== "create";
+  const showCreate = moduleView === "create";
 
   async function refresh() {
     setLoading(true);
@@ -75,8 +86,17 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
 
       {error ? <div className="alert">{error}</div> : null}
 
+      <section className="crm-module-nav">
+        <NavLink to="/companies" className="crm-module-nav__link">
+          Firmaoversikt
+        </NavLink>
+        <NavLink to="/companies/new" className="crm-module-nav__link">
+          Nytt firma
+        </NavLink>
+      </section>
+
       <section className="incident-layout">
-        <article className="card">
+        {showList ? <article className="card">
           <div className="table-toolbar">
             <div className="card-headline">
               <h2>Firmaer</h2>
@@ -98,9 +118,9 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
               </article>
             ))}
           </div>
-        </article>
+        </article> : null}
 
-        <article className="card">
+        {showCreate ? <article className="card">
           <div className="card-headline">
             <h2>Nytt firma</h2>
             <InfoHint text="Tekniske felter opprettes automatisk. Du trenger bare firmanavn." />
@@ -121,7 +141,7 @@ export default function CompaniesPage({ token, currentUser }: { token: string; c
               </button>
             </form>
           )}
-        </article>
+        </article> : null}
       </section>
     </div>
   );

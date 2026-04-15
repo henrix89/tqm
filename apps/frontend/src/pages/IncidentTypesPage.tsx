@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import InfoHint from "../components/InfoHint";
 import { createIncidentType, listCompanies, listIncidentTypes, type AuthUser, type Company, type IncidentType } from "../lib/api";
 
@@ -13,7 +14,15 @@ function toSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export default function IncidentTypesPage({ token, currentUser }: { token: string; currentUser: AuthUser }) {
+export default function IncidentTypesPage({
+  token,
+  currentUser,
+  moduleView = "list",
+}: {
+  token: string;
+  currentUser: AuthUser;
+  moduleView?: "list" | "create";
+}) {
   const [items, setItems] = useState<IncidentType[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +36,8 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
 
   const canManage = currentUser.role === "superadmin" || currentUser.role === "company_admin";
   const slugPreview = useMemo(() => toSlug(form.name), [form.name]);
+  const showList = moduleView !== "create";
+  const showCreate = moduleView === "create";
 
   async function refresh() {
     setLoading(true);
@@ -87,8 +98,17 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
 
       {error ? <div className="alert">{error}</div> : null}
 
+      <section className="crm-module-nav">
+        <NavLink to="/incident-types" className="crm-module-nav__link">
+          Typeoversikt
+        </NavLink>
+        <NavLink to="/incident-types/new" className="crm-module-nav__link">
+          Ny avvikstype
+        </NavLink>
+      </section>
+
       <section className="incident-layout">
-        <article className="card">
+        {showList ? <article className="card">
           <div className="table-toolbar">
             <div className="card-headline">
               <h2>Avvikstyper</h2>
@@ -118,9 +138,9 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
               </article>
             ))}
           </div>
-        </article>
+        </article> : null}
 
-        <article className="card">
+        {showCreate ? <article className="card">
           <div className="card-headline">
             <h2>Ny avvikstype</h2>
             <InfoHint text="Teknisk identifikator opprettes automatisk. Du trenger bare navn, beskrivelse og firma." />
@@ -170,7 +190,7 @@ export default function IncidentTypesPage({ token, currentUser }: { token: strin
               </button>
             </form>
           )}
-        </article>
+        </article> : null}
       </section>
     </div>
   );

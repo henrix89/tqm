@@ -91,6 +91,13 @@ export type CrmCustomerStatus = "PROSPEKT" | "AKTIV" | "INAKTIV";
 export type CrmActivityType = "BESOK" | "TELEFON" | "EPOST" | "MOTE" | "OPPFOLGING";
 export type CrmIssueSeverity = "LAV" | "MIDDELS" | "HOY" | "KRITISK";
 export type CrmIssueStatus = "APEN" | "PAGAR" | "LUKKET";
+export type CrmResponsibilityScope = "SALES" | "TECHNICAL" | "ADMIN";
+
+export type CrmResponsibilityAssignment = {
+  scope: CrmResponsibilityScope;
+  departmentId: string | null;
+  userIds: string[];
+};
 
 export type CrmCustomer = {
   id: string;
@@ -105,6 +112,7 @@ export type CrmCustomer = {
   companyId: string;
   departmentId: string | null;
   sharedWithUserIds: string[];
+  responsibilityAssignments: CrmResponsibilityAssignment[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -131,6 +139,7 @@ export type CrmActivity = {
   summary: string;
   details: string;
   ownerUserId: string;
+  notificationScope?: CrmResponsibilityScope | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -140,6 +149,7 @@ export type CrmNote = {
   customerId: string;
   body: string;
   authorUserId: string;
+  notificationScope?: CrmResponsibilityScope | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -154,8 +164,25 @@ export type CrmIssue = {
   status: CrmIssueStatus;
   dueDate?: string | null;
   ownerUserId?: string | null;
+  notificationScope?: CrmResponsibilityScope | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type NotificationItem = {
+  id: string;
+  userId: string;
+  companyId: string;
+  customerId: string;
+  scope: CrmResponsibilityScope;
+  type: "customer_note" | "customer_activity" | "customer_issue";
+  title: string;
+  message: string;
+  link: string;
+  isRead: boolean;
+  createdByUserId: string;
+  readAt?: string | null;
+  createdAt: string;
 };
 
 export type CrmCustomerDetail = {
@@ -165,6 +192,79 @@ export type CrmCustomerDetail = {
   notes: CrmNote[];
   issues: CrmIssue[];
   attachments: FileAsset[];
+};
+
+export type SurveyStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
+export type SurveyQuestionType = "TEXT" | "SCALE" | "YES_NO";
+
+export type Survey = {
+  id: string;
+  title: string;
+  description: string;
+  status: SurveyStatus;
+  isAnonymous: boolean;
+  companyId: string;
+  departmentId: string | null;
+  createdBy: string;
+  questionCount: number;
+  responseCount: number;
+  publishedAt?: string | null;
+  closedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SurveyQuestion = {
+  id: string;
+  text: string;
+  type: SurveyQuestionType;
+  required: boolean;
+};
+
+export type SurveyResponse = {
+  id: string;
+  responderId: string | null;
+  answers: { questionId: string; value: string }[];
+  submittedAt: string;
+};
+
+export type SurveyDetail = Survey & {
+  questions: SurveyQuestion[];
+  responses: SurveyResponse[];
+};
+
+export type InspectionStatus = "PLANNED" | "COMPLETED";
+export type FindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type FindingStatus = "OPEN" | "IN_PROGRESS" | "DONE";
+
+export type Inspection = {
+  id: string;
+  title: string;
+  location: string;
+  departmentId: string | null;
+  companyId: string;
+  plannedFor: string;
+  status: InspectionStatus;
+  createdBy: string;
+  findingCount: number;
+  openFindingCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InspectionFinding = {
+  id: string;
+  title: string;
+  description: string;
+  severity: FindingSeverity;
+  status: FindingStatus;
+  assigneeUserId: string | null;
+  dueDate?: string | null;
+  incidentId?: string | null;
+};
+
+export type InspectionDetail = Inspection & {
+  findings: InspectionFinding[];
 };
 
 type RequestOptions = {
@@ -400,6 +500,14 @@ export async function createCrmCustomer(token: string, body: Record<string, unkn
   });
 }
 
+export async function updateCrmCustomer(token: string, customerId: string, body: Record<string, unknown>) {
+  return apiRequest<CrmCustomer>(`/crm/customers/${customerId}`, {
+    method: "PATCH",
+    token,
+    body,
+  });
+}
+
 export async function createCrmContact(token: string, customerId: string, body: Record<string, unknown>) {
   return apiRequest<CrmContact>(`/crm/customers/${customerId}/contacts`, {
     method: "POST",
@@ -432,6 +540,24 @@ export async function createCrmIssue(token: string, customerId: string, body: Re
   });
 }
 
+export async function listNotifications(token: string) {
+  return apiRequest<{ items: NotificationItem[]; unreadCount: number }>("/notifications", { token });
+}
+
+export async function markNotificationRead(token: string, notificationId: string) {
+  return apiRequest<NotificationItem>(`/notifications/${notificationId}/read`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function markAllNotificationsRead(token: string) {
+  return apiRequest<{ ok: true }>("/notifications/read-all", {
+    method: "POST",
+    token,
+  });
+}
+
 export async function uploadCrmCustomerFiles(token: string, customerId: string, files: File[]) {
   return apiRequest<{ items: FileAsset[] }>(`/crm/customers/${customerId}/attachments`, {
     method: "POST",
@@ -442,4 +568,74 @@ export async function uploadCrmCustomerFiles(token: string, customerId: string, 
 
 export async function downloadFile(token: string, fileId: string) {
   return apiBlob(`/files/${fileId}/content`, token);
+}
+
+export async function listSurveys(token: string) {
+  return apiRequest<{ items: Survey[] }>("/surveys", { token });
+}
+
+export async function createSurvey(token: string, body: Record<string, unknown>) {
+  return apiRequest<Survey>("/surveys", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function getSurveyDetail(token: string, surveyId: string) {
+  return apiRequest<SurveyDetail>(`/surveys/${surveyId}`, { token });
+}
+
+export async function createSurveyQuestion(token: string, surveyId: string, body: Record<string, unknown>) {
+  return apiRequest<SurveyQuestion>(`/surveys/${surveyId}/questions`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function publishSurvey(token: string, surveyId: string) {
+  return apiRequest<{ ok: true; status: SurveyStatus; publishedAt?: string | null }>(`/surveys/${surveyId}/publish`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function submitSurveyResponse(token: string, surveyId: string, body: Record<string, unknown>) {
+  return apiRequest<{ id: string; submittedAt: string }>(`/surveys/${surveyId}/submit`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function listInspections(token: string) {
+  return apiRequest<{ items: Inspection[] }>("/inspections", { token });
+}
+
+export async function createInspection(token: string, body: Record<string, unknown>) {
+  return apiRequest<Inspection>("/inspections", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function getInspectionDetail(token: string, inspectionId: string) {
+  return apiRequest<InspectionDetail>(`/inspections/${inspectionId}`, { token });
+}
+
+export async function createInspectionFinding(token: string, inspectionId: string, body: Record<string, unknown>) {
+  return apiRequest<InspectionFinding>(`/inspections/${inspectionId}/findings`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createIncidentFromFinding(token: string, findingId: string) {
+  return apiRequest<{ incidentId: string }>(`/inspections/findings/${findingId}/create-incident`, {
+    method: "POST",
+    token,
+  });
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import {
   createIncident,
   downloadFile,
@@ -95,7 +96,13 @@ const copy = {
   deadlineText: "Det gj\u00F8r det enklere \u00E5 prioritere saker som krever handling.",
 };
 
-export default function IncidentsPage({ token }: { token: string }) {
+export default function IncidentsPage({
+  token,
+  moduleView = "list",
+}: {
+  token: string;
+  moduleView?: "list" | "create";
+}) {
   const [filter, setFilter] = useState<Filter>({
     q: "",
     status: "",
@@ -122,6 +129,8 @@ export default function IncidentsPage({ token }: { token: string }) {
     measures: "",
     dueDate: "",
   });
+  const showList = moduleView === "list";
+  const showCreate = moduleView === "create";
 
   const params = useMemo(() => ({ ...filter, page: filter.page, pageSize: filter.pageSize }), [filter]);
 
@@ -265,9 +274,19 @@ export default function IncidentsPage({ token }: { token: string }) {
 
       {error && <div className="alert">{error}</div>}
 
+      <section className="crm-module-nav">
+        <NavLink to="/incidents" className="crm-module-nav__link">
+          Avviksliste
+        </NavLink>
+        <NavLink to="/incidents/new" className="crm-module-nav__link">
+          Registrer avvik
+        </NavLink>
+      </section>
+
       <section className="incident-layout">
-        <div className="stack">
-          <article className="card">
+        {showList ? (
+          <div className="stack">
+            <article className="card">
             <div className="section-header">
               <div className="page-intro">
                 <p className="section-label">Finn riktig sak</p>
@@ -363,9 +382,9 @@ export default function IncidentsPage({ token }: { token: string }) {
                 </select>
               </div>
             </form>
-          </article>
+            </article>
 
-          <article className="card">
+            <article className="card">
             <div className="table-toolbar">
               <div>
                 <h2>Arbeidsliste</h2>
@@ -464,11 +483,13 @@ export default function IncidentsPage({ token }: { token: string }) {
                 Neste
               </button>
             </div>
-          </article>
-        </div>
+            </article>
+          </div>
+        ) : null}
 
-        <div className="stack">
-          <article className="card">
+        {showCreate ? (
+          <div className="stack">
+            <article className="card">
             <div className="page-intro">
               <p className="section-label">Registrer nytt avvik</p>
               <h2>Legg inn saken mens detaljene fortsatt er ferske.</h2>
@@ -583,9 +604,9 @@ export default function IncidentsPage({ token }: { token: string }) {
                 {creating ? "Lagrer..." : "Registrer avvik"}
               </button>
             </form>
-          </article>
+            </article>
 
-          <article className="card">
+            <article className="card">
             <div className="page-intro">
               <p className="section-label">Praktiske tips</p>
               <h2>{copy.qualityTitle}</h2>
@@ -604,8 +625,9 @@ export default function IncidentsPage({ token }: { token: string }) {
                 <span className="muted">Kategorisering hjelper senere rapportering og trendanalyse.</span>
               </div>
             </div>
-          </article>
-        </div>
+            </article>
+          </div>
+        ) : null}
       </section>
     </div>
   );

@@ -1,3 +1,5 @@
+import { NavLink } from "react-router-dom";
+
 const cards = [
   {
     title: "Dokumentbibliotek",
@@ -13,24 +15,31 @@ const cards = [
   },
 ];
 
-export default function DocumentsPage() {
+export default function DocumentsPage({ moduleView = "overview" }: { moduleView?: "overview" | "library" }) {
+  const isLibrary = moduleView === "library";
+  const cardsToShow = isLibrary ? cards.slice(0, 2) : cards;
+
   return (
     <div className="page">
       <section className="page-hero">
         <div className="page-intro">
           <p className="section-label">Dokumentstyring</p>
-          <h2 className="page-hero__title">Gi dokumentene en arbeidsflate som faktisk inviterer til orden.</h2>
+          <h2 className="page-hero__title">
+            {isLibrary ? "Få biblioteket over i en tydelig, søkbar arbeidsflate." : "Gi dokumentene en arbeidsflate som faktisk inviterer til orden."}
+          </h2>
           <p>
-            Denne siden er klargjort som et tydelig startpunkt for opplasting, versjoner og revisjonskontroll.
+            {isLibrary
+              ? "Biblioteksiden skal samle gjeldende dokumenter, filtrering og revisjonskontroll på ett sted."
+              : "Denne siden er klargjort som et tydelig startpunkt for opplasting, versjoner og revisjonskontroll."}
           </p>
         </div>
         <div className="hero-panel">
           <p className="section-label">Neste naturlige steg</p>
-          <h3>Bygg et bibliotek med filtrering, ansvarlig og revisjonsdato.</h3>
+          <h3>{isLibrary ? "Bygg et søkbart dokumentbibliotek for hele virksomheten." : "Bygg et bibliotek med filtrering, ansvarlig og revisjonsdato."}</h3>
           <div className="hero-panel__grid">
             <div className="hero-panel__item">
-              <span className="hero-panel__value">18</span>
-              <span>forslag til dokumentkategorier</span>
+              <span className="hero-panel__value">{isLibrary ? 6 : 18}</span>
+              <span>{isLibrary ? "foreslåtte filtre og metadatafelt" : "forslag til dokumentkategorier"}</span>
             </div>
             <div className="hero-panel__item">
               <span className="hero-panel__value">1</span>
@@ -40,8 +49,17 @@ export default function DocumentsPage() {
         </div>
       </section>
 
+      <section className="crm-module-nav">
+        <NavLink to="/documents" className="crm-module-nav__link">
+          Dokumentoversikt
+        </NavLink>
+        <NavLink to="/documents/library" className="crm-module-nav__link">
+          Bibliotek
+        </NavLink>
+      </section>
+
       <section className="placeholder-grid">
-        {cards.map((card) => (
+        {cardsToShow.map((card) => (
           <article key={card.title} className="placeholder-card">
             <h3>{card.title}</h3>
             <p>{card.text}</p>
@@ -51,9 +69,13 @@ export default function DocumentsPage() {
 
       <section className="card">
         <div className="page-intro">
-          <p className="section-label">Anbefalt innhold</p>
-          <h2>Et pent arkiv bør føles trygt, lett og forutsigbart.</h2>
-          <p>Her kan vi senere legge inn dokumentliste, statusfelt, eier og revisjonshistorikk.</p>
+          <p className="section-label">{isLibrary ? "Bibliotek" : "Anbefalt innhold"}</p>
+          <h2>{isLibrary ? "Biblioteket bør være enkelt å skanne og lett å vedlikeholde." : "Et pent arkiv bør føles trygt, lett og forutsigbart."}</h2>
+          <p>
+            {isLibrary
+              ? "Her kan vi neste steg legge inn dokumentliste, filterchips, eier, versjon og revisjonsdato."
+              : "Her kan vi senere legge inn dokumentliste, statusfelt, eier og revisjonshistorikk."}
+          </p>
         </div>
       </section>
     </div>

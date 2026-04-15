@@ -4,6 +4,16 @@ export const customerStatuses = ["PROSPEKT", "AKTIV", "INAKTIV"] as const;
 export const activityTypes = ["BESOK", "TELEFON", "EPOST", "MOTE", "OPPFOLGING"] as const;
 export const issueStatuses = ["APEN", "PAGAR", "LUKKET"] as const;
 export const issueSeverities = ["LAV", "MIDDELS", "HOY", "KRITISK"] as const;
+export const responsibilityScopes = ["SALES", "TECHNICAL", "ADMIN"] as const;
+
+const responsibilityAssignmentSchema = new Schema(
+  {
+    scope: { type: String, enum: responsibilityScopes, required: true },
+    departmentId: { type: Types.ObjectId, ref: "Department", default: null },
+    userIds: { type: [{ type: Types.ObjectId, ref: "User" }], default: [] },
+  },
+  { _id: false }
+);
 
 const customerSchema = new Schema(
   {
@@ -18,6 +28,7 @@ const customerSchema = new Schema(
     companyId: { type: Types.ObjectId, ref: "Company", required: true },
     departmentId: { type: Types.ObjectId, ref: "Department", default: null },
     sharedWithUserIds: { type: [{ type: Types.ObjectId, ref: "User" }], default: [] },
+    responsibilityAssignments: { type: [responsibilityAssignmentSchema], default: [] },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true, collection: "crm_customers" }
@@ -46,6 +57,7 @@ const activitySchema = new Schema(
     summary: { type: String, required: true, trim: true },
     details: { type: String, default: "", trim: true },
     ownerUserId: { type: Types.ObjectId, ref: "User", required: true },
+    notificationScope: { type: String, enum: responsibilityScopes, default: null },
   },
   { timestamps: true, collection: "crm_activities" }
 );
@@ -56,6 +68,7 @@ const noteSchema = new Schema(
     companyId: { type: Types.ObjectId, ref: "Company", required: true },
     body: { type: String, required: true, trim: true },
     authorUserId: { type: Types.ObjectId, ref: "User", required: true },
+    notificationScope: { type: String, enum: responsibilityScopes, default: null },
   },
   { timestamps: true, collection: "crm_notes" }
 );
@@ -71,6 +84,7 @@ const issueSchema = new Schema(
     status: { type: String, enum: issueStatuses, default: "APEN" },
     dueDate: { type: Date, default: null },
     ownerUserId: { type: Types.ObjectId, ref: "User", default: null },
+    notificationScope: { type: String, enum: responsibilityScopes, default: "ADMIN" },
   },
   { timestamps: true, collection: "crm_issues" }
 );

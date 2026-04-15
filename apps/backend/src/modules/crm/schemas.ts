@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { activityTypes, customerStatuses, issueSeverities, issueStatuses } from "./models";
+import { activityTypes, customerStatuses, issueSeverities, issueStatuses, responsibilityScopes } from "./models";
+
+const responsibilityAssignmentSchema = z.object({
+  scope: z.enum(responsibilityScopes),
+  departmentId: z.string().nullable().optional(),
+  userIds: z.array(z.string()).optional().default([]),
+});
 
 export const customerListQuerySchema = z.object({
   q: z.string().optional(),
@@ -21,6 +27,7 @@ export const createCustomerSchema = z.object({
   companyId: z.string().optional(),
   departmentId: z.string().nullable().optional(),
   sharedWithUserIds: z.array(z.string()).optional().default([]),
+  responsibilityAssignments: z.array(responsibilityAssignmentSchema).optional().default([]),
 });
 
 export const updateCustomerSchema = z.object({
@@ -34,6 +41,7 @@ export const updateCustomerSchema = z.object({
   ownerUserId: z.string().optional(),
   departmentId: z.string().nullable().optional(),
   sharedWithUserIds: z.array(z.string()).optional(),
+  responsibilityAssignments: z.array(responsibilityAssignmentSchema).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -52,10 +60,12 @@ export const createActivitySchema = z.object({
   details: z.string().optional().default(""),
   contactId: z.string().nullable().optional(),
   ownerUserId: z.string().optional(),
+  notificationScope: z.enum(responsibilityScopes).nullable().optional(),
 });
 
 export const createNoteSchema = z.object({
   body: z.string().min(1),
+  notificationScope: z.enum(responsibilityScopes).nullable().optional(),
 });
 
 export const createIssueSchema = z.object({
@@ -66,4 +76,5 @@ export const createIssueSchema = z.object({
   status: z.enum(issueStatuses).optional().default("APEN"),
   dueDate: z.string().nullable().optional(),
   ownerUserId: z.string().nullable().optional(),
+  notificationScope: z.enum(responsibilityScopes).optional().default("ADMIN"),
 });

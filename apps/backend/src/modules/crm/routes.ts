@@ -6,6 +6,7 @@ import type { AuthenticatedRequest } from "../auth/types";
 import { ActivityModel, ContactModel, CustomerModel, IssueModel, NoteModel } from "./models";
 import { canReadCustomer, assertCanWriteCustomer, parseObjectId } from "./access";
 import { createFileAsset, listAttachmentsForEntity } from "../files/service";
+import { createCustomerNotifications } from "../notifications/service";
 import {
   createActivitySchema,
   createContactSchema,
@@ -44,6 +45,11 @@ function mapCustomer(customer: any) {
     companyId: String(customer.companyId),
     departmentId: customer.departmentId ? String(customer.departmentId) : null,
     sharedWithUserIds: (customer.sharedWithUserIds ?? []).map((item: Types.ObjectId) => String(item)),
+    responsibilityAssignments: (customer.responsibilityAssignments ?? []).map((item: any) => ({
+      scope: item.scope,
+      departmentId: item.departmentId ? String(item.departmentId) : null,
+      userIds: (item.userIds ?? []).map((userId: Types.ObjectId) => String(userId)),
+    })),
     isActive: customer.isActive,
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
@@ -74,6 +80,7 @@ function mapActivity(item: any) {
     summary: item.summary,
     details: item.details,
     ownerUserId: String(item.ownerUserId),
+    notificationScope: item.notificationScope ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -85,6 +92,7 @@ function mapNote(item: any) {
     customerId: String(item.customerId),
     body: item.body,
     authorUserId: String(item.authorUserId),
+    notificationScope: item.notificationScope ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -101,10 +109,17 @@ function mapIssue(item: any) {
     status: item.status,
     dueDate: item.dueDate,
     ownerUserId: item.ownerUserId ? String(item.ownerUserId) : null,
+    notificationScope: item.notificationScope ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
 }
+
+const notificationScopeLabels = {
+  SALES: "salg",
+  TECHNICAL: "teknisk",
+  ADMIN: "administrasjon",
+} as const;
 
 async function getCustomerForActor(actor: NonNullable<AuthenticatedRequest["auth"]>, customerId: string) {
   const customer = await CustomerModel.findById(customerId);
@@ -184,6 +199,11 @@ router.post(
       companyId: new Types.ObjectId(companyId),
       departmentId: parseObjectId(body.departmentId ?? actor.departmentId),
       sharedWithUserIds: body.sharedWithUserIds.map((item) => new Types.ObjectId(item)),
+      responsibilityAssignments: body.responsibilityAssignments.map((item) => ({
+        scope: item.scope,
+        departmentId: parseObjectId(item.departmentId),
+        userIds: item.userIds.map((userId) => new Types.ObjectId(userId)),
+      })),
       isActive: true,
     });
 
@@ -242,6 +262,13 @@ router.patch(
     if (body.ownerUserId !== undefined) customer.ownerUserId = new Types.ObjectId(body.ownerUserId);
     if (body.departmentId !== undefined) customer.departmentId = parseObjectId(body.departmentId);
     if (body.sharedWithUserIds !== undefined) customer.sharedWithUserIds = body.sharedWithUserIds.map((item) => new Types.ObjectId(item));
+    if (body.responsibilityAssignments !== undefined) {
+      customer.responsibilityAssignments = body.responsibilityAssignments.map((item) => ({
+        scope: item.scope,
+        departmentId: parseObjectId(item.departmentId),
+        userIds: item.userIds.map((userId) => new Types.ObjectId(userId)),
+      })) as any;
+    }
     if (body.isActive !== undefined) customer.isActive = body.isActive;
     await customer.save();
 
@@ -303,7 +330,28 @@ router.post(
       summary: body.summary,
       details: body.details,
       ownerUserId: new Types.ObjectId(ownerUserId),
+      notificationScope: body.notificationScope ?? null,
     });
+
+    if (body.notificationScope) {
+      await createCustomerNotifications({
+        actorUserId: actor.userId,
+        customer: {
+          id: String(customer._id),
+          companyId: String(customer.companyId),
+          name: customer.name,
+          responsibilityAssignments: customer.responsibilityAssignments?.map((item: any) => ({
+            scope: item.scope,
+            departmentId: item.departmentId ? String(item.departmentId) : null,
+            userIds: (item.userIds ?? []).map((userId: Types.ObjectId) => String(userId)),
+          })),
+        },
+        scope: body.notificationScope,
+        type: "customer_activity",
+        title: `Ny aktivitet på ${customer.name}`,
+        message: `${actor.userId === ownerUserId ? "En aktivitet" : "En oppdatering"} ble registrert for ${customer.name}.`,
+      });
+    }
 
     res.status(201).json(mapActivity(created));
   })
@@ -329,7 +377,28 @@ router.post(
       companyId: customer.companyId,
       body: body.body,
       authorUserId: new Types.ObjectId(actor.userId),
+      notificationScope: body.notificationScope ?? null,
     });
+
+    if (body.notificationScope) {
+      await createCustomerNotifications({
+        actorUserId: actor.userId,
+        customer: {
+          id: String(customer._id),
+          companyId: String(customer.companyId),
+          name: customer.name,
+          responsibilityAssignments: customer.responsibilityAssignments?.map((item: any) => ({
+            scope: item.scope,
+            departmentId: item.departmentId ? String(item.departmentId) : null,
+            userIds: (item.userIds ?? []).map((userId: Types.ObjectId) => String(userId)),
+          })),
+        },
+        scope: body.notificationScope,
+        type: "customer_note",
+        title: `Ny melding på ${customer.name}`,
+        message: `Det er lagt inn en ny melding til ${notificationScopeLabels[body.notificationScope]} for kunden.`,
+      });
+    }
 
     res.status(201).json(mapNote(created));
   })
@@ -360,6 +429,25 @@ router.post(
       status: body.status,
       dueDate: body.dueDate ? new Date(body.dueDate) : null,
       ownerUserId: parseObjectId(body.ownerUserId),
+      notificationScope: body.notificationScope,
+    });
+
+    await createCustomerNotifications({
+      actorUserId: actor.userId,
+      customer: {
+        id: String(customer._id),
+        companyId: String(customer.companyId),
+        name: customer.name,
+        responsibilityAssignments: customer.responsibilityAssignments?.map((item: any) => ({
+          scope: item.scope,
+          departmentId: item.departmentId ? String(item.departmentId) : null,
+          userIds: (item.userIds ?? []).map((userId: Types.ObjectId) => String(userId)),
+        })),
+      },
+      scope: body.notificationScope,
+      type: "customer_issue",
+      title: `Nytt kundeavvik på ${customer.name}`,
+      message: `Et kundeavvik ble registrert og sendt til riktig ansvarsområde.`,
     });
 
     res.status(201).json(mapIssue(created));

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NavLink } from "react-router-dom";
 import InfoHint from "../components/InfoHint";
 import {
   createDepartment,
@@ -9,13 +10,23 @@ import {
   type Company,
   type Department,
 } from "../lib/api";
+import { getMissingCoreDepartmentNames } from "../lib/departments";
 
-export default function DepartmentsPage({ token, currentUser }: { token: string; currentUser: AuthUser }) {
+export default function DepartmentsPage({
+  token,
+  currentUser,
+  moduleView = "list",
+}: {
+  token: string;
+  currentUser: AuthUser;
+  moduleView?: "list" | "create";
+}) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [creatingDefaults, setCreatingDefaults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -77,6 +88,32 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
   const companyNames = useMemo(() => new Map(companies.map((company) => [company.id, company.name])), [companies]);
   const userNames = useMemo(() => new Map(users.map((user) => [user.id, user.fullName])), [users]);
   const visibleUsers = users.filter((user) => user.companyId === form.companyId);
+  const missingCoreDepartments = getMissingCoreDepartmentNames(departments, form.companyId);
+  const showList = moduleView !== "create";
+  const showCreate = moduleView === "create";
+
+  async function createDefaultDepartments() {
+    if (!canManage || missingCoreDepartments.length === 0) return;
+    setCreatingDefaults(true);
+    setError(null);
+
+    try {
+      await Promise.all(
+        missingCoreDepartments.map((name) =>
+          createDepartment(token, {
+            name,
+            companyId: form.companyId,
+            managerUserId: null,
+          })
+        )
+      );
+      await refresh();
+    } catch (err: any) {
+      setError(err?.message ?? "Kunne ikke opprette standardavdelinger");
+    } finally {
+      setCreatingDefaults(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -96,8 +133,17 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
 
       {error ? <div className="alert">{error}</div> : null}
 
+      <section className="crm-module-nav">
+        <NavLink to="/departments" className="crm-module-nav__link">
+          Avdelingsoversikt
+        </NavLink>
+        <NavLink to="/departments/new" className="crm-module-nav__link">
+          Ny avdeling
+        </NavLink>
+      </section>
+
       <section className="incident-layout">
-        <article className="card">
+        {showList ? <article className="card">
           <div className="table-toolbar">
             <div className="card-headline">
               <h2>Avdelinger</h2>
@@ -123,9 +169,9 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
               </article>
             ))}
           </div>
-        </article>
+        </article> : null}
 
-        <article className="card">
+        {showCreate ? <article className="card">
           <div className="card-headline">
             <h2>Ny avdeling</h2>
             <InfoHint text="Velg firma og eventuelt avdelingsleder. Tekniske felter er skjult for å holde skjemaet ryddig." />
@@ -137,6 +183,25 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
             </div>
           ) : (
             <form className="incident-form compact-form" onSubmit={onSubmit}>
+              {missingCoreDepartments.length > 0 ? (
+                <div className="inline-panel">
+                  <div className="inline-panel__copy">
+                    <strong>Standardavdelinger</strong>
+                    <span>
+                      Disse brukes på tvers av CRM, varsler og brukeradministrasjon: {missingCoreDepartments.join(", ")}.
+                    </span>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={() => void createDefaultDepartments()}
+                    disabled={creatingDefaults}
+                  >
+                    {creatingDefaults ? "Oppretter..." : "Opprett standardavdelinger"}
+                  </button>
+                </div>
+              ) : null}
+
               <div className="field">
                 <label htmlFor="department-name">Avdelingsnavn</label>
                 <input id="department-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -178,7 +243,7 @@ export default function DepartmentsPage({ token, currentUser }: { token: string;
               </button>
             </form>
           )}
-        </article>
+        </article> : null}
       </section>
     </div>
   );

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { SignOptions } from "jsonwebtoken";
 import { config } from "../../core/config";
 import type { AuthUser } from "./types";
 
@@ -12,7 +13,9 @@ export async function verifyPassword(password: string, passwordHash: string) {
 }
 
 export function signAuthToken(payload: AuthUser) {
-  return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+  return jwt.sign(payload, config.jwtSecret, {
+    expiresIn: config.jwtExpiresIn as SignOptions["expiresIn"],
+  });
 }
 
 export function verifyAuthToken(token: string) {

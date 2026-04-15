@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Types } from "mongoose";
 import { asyncHandler } from "../../core/asyncHandler";
 import { requireAuth, requirePasswordChangeCompleted } from "../auth/middleware";
 import { CustomerModel } from "../crm/models";
@@ -26,7 +27,7 @@ router.get(
         companyId: String(customer.companyId),
         departmentId: customer.departmentId ? String(customer.departmentId) : null,
         ownerUserId: String(customer.ownerUserId),
-        sharedWithUserIds: customer.sharedWithUserIds.map((item) => String(item)),
+        sharedWithUserIds: customer.sharedWithUserIds.map((item: Types.ObjectId) => String(item)),
       });
 
       if (!allowed) {

@@ -11,6 +11,7 @@ import { router as inspections } from "../modules/inspections/routes";
 import { router as kpi } from "../modules/kpi/routes";
 import { router as crm } from "../modules/crm/routes";
 import { router as files } from "../modules/files/routes";
+import { router as notifications } from "../modules/notifications/routes";
 import { router as users } from "../modules/users/routes";
 
 export const router = Router();
@@ -22,6 +23,7 @@ router.use("/incident-types", incidentTypes);
 router.use("/users", users);
 router.use("/incidents", incidents);
 router.use("/crm", requireAuth, requirePasswordChangeCompleted, crm);
+router.use("/notifications", requireAuth, requirePasswordChangeCompleted, notifications);
 router.use("/files", files);
 router.use("/documents", requireAuth, requirePasswordChangeCompleted, documents);
 router.use("/surveys", requireAuth, requirePasswordChangeCompleted, surveys);
